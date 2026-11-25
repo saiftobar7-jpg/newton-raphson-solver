@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Newton-Raphson Solver</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script>
+<style>
+:root{--bg:#f3f6fb;--fg:#0f2a4d;--card:#fff;--bd:#d9e2ef;--ac:#1f4e8c;--ok:#2e9e5b;--warn:#c98a00;--bad:#d62728;--mu:#5b6b82;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1522;--fg:#e6edf7;--card:#16213a;--bd:#2a3856;--ac:#6ea8ff;--mu:#9fb0cc}}
+:root[data-theme="dark"]{--bg:#0e1522;--fg:#e6edf7;--card:#16213a;--bd:#2a3856;--ac:#6ea8ff;--mu:#9fb0cc}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Segoe UI",Tahoma,Arial,sans-serif;line-height:1.6}
+main{max-width:1000px;margin:auto;padding:16px}
+.hero{background:linear-gradient(135deg,#0f2a4d,#1f4e8c);color:#fff;border-radius:16px;padding:24px;margin-bottom:16px}
+.hero h1{margin:4px 0;font-size:1.9rem}.hero p{margin:0;opacity:.9}
+.badge{background:#ffffff26;border-radius:20px;padding:2px 12px;font-size:.8rem}
+section{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:16px}
+h2{margin:0 0 12px;font-size:1.15rem}
+label{font-size:.85rem;color:var(--mu);display:block;margin-bottom:4px}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--fg);font:inherit;direction:ltr}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:12px}
+button{padding:10px 16px;border-radius:8px;border:1px solid var(--ac);background:transparent;color:var(--ac);font:inherit;cursor:pointer}
+button.p{background:var(--ac);color:#fff;font-weight:700}
+.card{border:1px solid var(--bd);border-right:5px solid var(--ac);border-radius:10px;padding:10px 12px}
+.card .l{font-size:.75rem;color:var(--mu)}.card .v{font-weight:700;direction:ltr;text-align:right;word-break:break-all}
+.ok{border-right-color:var(--ok)}.warn{border-right-color:var(--warn)}.bad{border-right-color:var(--bad)}
+canvas{width:100%;height:360px;display:block}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;direction:ltr;font-size:.85rem}
+th,td{border-bottom:1px solid var(--bd);padding:6px 10px;text-align:right;white-space:nowrap}th{background:var(--bg)}
+code{direction:ltr;unicode-bidi:embed;background:var(--bg);padding:2px 6px;border-radius:5px}
+.err{color:var(--bad);font-weight:700}.ex{display:flex;gap:8px;flex-wrap:wrap}
+footer{text-align:center;color:var(--mu);font-size:.85rem;padding:8px}
+</style>
+</head>
+<body><main>
+<div class="hero"><span class="badge">Newton-Raphson Method</span><h1>Newton-Raphson Solver</h1><p>الحل العددي للمعادلات غير الخطية</p></div>
+
+<section><h2>المدخلات</h2>
+<label for="fn">الدالة f(x)</label><input id="fn" value="x^3 - 8*x + 5">
+<div class="g">
+<div><label for="x0">القيمة الابتدائية X0</label><input id="x0" type="number" step="any" value="0"></div>
+<div><label for="tol">Tolerance</label><input id="tol" type="number" step="any" value="0.0001"></div>
+<div><label for="mx">أقصى عدد تكرارات</label><input id="mx" type="number" value="50"></div>
+<div><label for="exs">مثال من المحاضرة</label><select id="exs"></select></div>
+<div><label for="a">بداية الفترة a (اختياري)</label><input id="a" type="number" step="any" value="0"></div>
+<div><label for="b">نهاية الفترة b (اختياري)</label><input id="b" type="number" step="any" value="1"></div>
+<div><label for="dec">الخانات العشرية</label><select id="dec"><option value="9">9 خانات</option><option value="5">5 خانات (زي المحاضرة)</option></select></div>
+</div>
+<div class="g"><button class="p" id="go">احسب الجذر</button><button id="ld">حمّل المثال</button><button id="cl">مسح</button></div>
+<p id="msg" class="err"></p></section>
+
+<div id="out" hidden>
+<section><h2>النتائج</h2><div class="g" id="cards"></div></section>
+<section><h2>الرسم البياني</h2><canvas id="cv"></canvas></section>
+<section><h2>جدول التكرارات</h2><div class="tw"><table id="tb"></table></div></section>
+<section><h2>التفاصيل الرياضية</h2><div id="md"></div></section>
+</div>
+
+<section><h2>أمثلة المحاضرة</h2><div class="ex" id="exb"></div></section>
+<footer>Numerical Methods Project · Newton-Raphson Method</footer>
+</main>
+<script>
+const EX=[["مثال 1 (صفحة 6)","x^3 - 8*x + 5",0,0.0001],["مثال 2 (صفحة 7)","x^4 - 11*x + 8",2,0.0001],
+["مثال 3 (صفحة 8)","exp(-x) - x",0,0.0001],["مثال 4 (صفحة 9)","x^3 - 2*x^2 + 0.25*x + 0.75",-1,0.0001]];
+const $=i=>document.getElementById(i);let R=null;
+const ev=(c,v)=>{try{const r=c.evaluate({x:v});return typeof r==="number"?r:NaN}catch(e){return NaN}};
+let DEC=9;const fm=(v,d=DEC)=>Number.isFinite(v)?v.toFixed(d):"—";
+EX.forEach((e,i)=>{$("exs").add(new Option(e[0],i));const b=document.createElement("button");b.textContent=e[0];b.onclick=()=>{load(i);solve()};$("exb").append(b)});
+function load(i){const e=EX[i];$("fn").value=e[1];$("x0").value=e[2];$("tol").value=e[3];$("mx").value=50;$("a").value=i===0?0:"";$("b").value=i===0?1:""}
+$("ld").onclick=()=>{load($("exs").value);solve()};
+$("cl").onclick=()=>{$("fn").value="";$("x0").value=0;$("tol").value=0.0001;$("mx").value=50;$("a").value="";$("b").value="";$("out").hidden=true;$("msg").textContent="";R=null};
+$("go").onclick=solve;
+$("dec").onchange=()=>{DEC=parseInt($("dec").value);if(R&&R.rows.length)show()};
+function solve(){
+  $("msg").textContent="";
+  try{
+    const src=$("fn").value.trim().replace(/\*\*/g,"^");if(!src)throw"اكتب الدالة f(x).";
+    const x0=parseFloat($("x0").value),tol=parseFloat($("tol").value),mx=parseInt($("mx").value);
+    if(!Number.isFinite(x0))throw"قيمة X0 غير صحيحة.";if(!(tol>0))throw"الـ Tolerance لازم يكون أكبر من صفر.";if(!(mx>=1))throw"عدد التكرارات لازم يكون 1 على الأقل.";
+    let node;try{node=math.parse(src)}catch(e){throw"الدالة مش مكتوبة صح. مثال: x^3 - 8*x + 5"}
+    const d1n=math.derivative(node,"x"),d2n=math.derivative(d1n,"x");
+    const f=node.compile(),f1=d1n.compile(),f2=d2n.compile();
+    if(!Number.isFinite(ev(f,x0)))throw"f(X0) مش رقم حقيقي. جرّب X0 تانية، وتأكد إن المتغير هو x فقط.";
+    let iv=null;const sa=$("a").value.trim(),sb=$("b").value.trim();
+    if(sa!==""||sb!==""){const A=parseFloat(sa),B=parseFloat(sb);if(!Number.isFinite(A)||!Number.isFinite(B)||A>=B)throw"الفترة [a, b] غير صحيحة (لازم a < b).";
+      const fa=ev(f,A),fb=ev(f,B);if(!Number.isFinite(fa)||!Number.isFinite(fb))throw"f(a) أو f(b) غير معرّفة.";iv={A,B,fa,fb,ok:fa*fb<0}}
+    const rows=[];let xi=x0,status="converged",why="";
+    for(let i=1;i<=mx;i++){
+      const fx=ev(f,xi),d=ev(f1,xi);
+      if(!Number.isFinite(fx)||!Number.isFinite(d)){status="failed";why="ظهرت قيمة غير منتهية.";break}
+      if(Math.abs(d)<1e-14){status="failed";why="المشتقة تساوي صفر عند x = "+xi.toPrecision(6)+" ولا يمكن القسمة.";break}
+      const xn=xi-fx/d;if(!Number.isFinite(xn)||Math.abs(xn)>1e100){status="failed";why="التكرار بيتباعد (overflow).";break}
+      const err=Math.abs(xn-xi),g=Math.abs(fx*ev(f2,xi)/(d*d));
+      rows.push({i,xi,fx,d,xn,err,g});xi=xn;
+      if(err<tol){status="converged";break}
+      if(i===mx)status="max";
+    }
+    R={f,rows,status,why,d1:d1n.toString(),d2:d2n.toString(),src:node.toString(),x0,tol,iv};show();
+  }catch(e){$("msg").textContent=typeof e==="string"?e:"حصل خطأ: "+(e.message||e);$("out").hidden=true;R=null}
+}
+function show(){
+  const {rows,status}=R,last=rows[rows.length-1];
+  if(!last){$("msg").textContent=R.why||"فشل الحساب.";$("out").hidden=true;return}
+  const st={converged:["Converged — تم التقارب","ok"],max:["Maximum Iterations Reached","warn"],failed:["Calculation Failed","bad"]}[status];
+  const C=(l,v,c="")=>`<div class="card ${c}"><div class="l">${l}</div><div class="v">${v}</div></div>`;
+  $("cards").innerHTML=C("الجذر التقريبي",fm(last.xn),st[1])+C("عدد التعويضات",rows.length)+C("الخطأ النهائي",last.err.toExponential(3))+C("الحالة",st[0],st[1])+C("f'(x)",R.d1)+C("f''(x)",R.d2);
+  if(R.why)$("msg").textContent=R.why;
+  $("tb").innerHTML="<tr><th>Iteration</th><th>Xi</th><th>f(Xi)</th><th>f'(Xi)</th><th>Xi+1</th><th>Error</th></tr>"+
+    rows.map(r=>`<tr><td>${r.i}</td><td>${fm(r.xi)}</td><td>${r.fx.toExponential(3)}</td><td>${fm(r.d)}</td><td>${fm(r.xn)}</td><td>${r.err.toExponential(3)}</td></tr>`).join("");
+  const g0=rows[0].g,iv=R.iv;
+  const ivHtml=iv?`<p>فحص الفترة [${iv.A}, ${iv.B}]: f(a) = ${fm(iv.fa,5)}، f(b) = ${fm(iv.fb,5)}، f(a)·f(b) = ${(iv.fa*iv.fb).toExponential(3)} ${iv.ok?"&lt; 0 ← f(x) بتغيّر إشارتها، فيه جذر واحد على الأقل في الفترة.":"≥ 0 ← الفترة دي مش مضمونة تحتوي جذر."} الجذر الناتج ${last.xn>=iv.A&&last.xn<=iv.B?"داخل":"خارج"} الفترة.</p>`:"";
+  if(iv&&!iv.ok&&!R.why)$("msg").textContent="تنبيه: f(a)·f(b) ≥ 0، الفترة دي مش مضمونة تحتوي جذر.";
+  $("md").innerHTML=`<p>f(x) = <code>${R.src}</code></p><p>f'(x) = <code>${R.d1}</code></p><p>f''(x) = <code>${R.d2}</code></p>
+  <p>القانون: <code>x(i+1) = x(i) − f(x(i)) / f'(x(i))</code></p><p>شرط التوقف: <code>|x(i+1) − x(i)| < Tolerance</code></p>
+  <p>شرط التقارب: <code>|f(x)·f''(x) / [f'(x)]²| &lt; 1</code></p>
+  ${ivHtml}<p>عند X0: القيمة = <b>${fm(g0,6)}</b> ← الشرط ${g0<1?"متحقق":"غير متحقق"} عند القيمة الابتدائية. (ده مؤشر فقط ومش ضمان للتقارب).</p>`;
+  $("out").hidden=false;draw();
+}
+function draw(){
+  if(!R||!R.rows.length)return;
+  const cv=$("cv"),dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=360;cv.width=W*dpr;cv.height=H*dpr;
+  const c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);
+  const cs=getComputedStyle(document.documentElement),fg=cs.getPropertyValue("--fg"),bd=cs.getPropertyValue("--bd"),ac=cs.getPropertyValue("--ac");
+  const P=R.rows.map(r=>r.xi).concat(R.rows[R.rows.length-1].xn),root=P[P.length-1];
+  const lo=Math.min(...P),hi=Math.max(...P),pad=Math.max((hi-lo)*.4,1),a=lo-pad,b=hi+pad;
+  const N=500,xs=[],ys=[];for(let k=0;k<=N;k++){const x=a+(b-a)*k/N;xs.push(x);ys.push(ev(R.f,x))}
+  const py=P.map(p=>ev(R.f,p)),fin=ys.filter(Number.isFinite).sort((p,q)=>p-q);
+  let y0=fin.length?fin[Math.floor(fin.length*.05)]:-1,y1=fin.length?fin[Math.floor(fin.length*.95)]:1;
+  py.forEach(v=>{if(Number.isFinite(v)){y0=Math.min(y0,v);y1=Math.max(y1,v)}});y0=Math.min(y0,0);y1=Math.max(y1,0);
+  const sp=(y1-y0)||1;y0-=.1*sp;y1+=.1*sp;
+  const m={l:50,r:15,t:15,b:30},X=x=>m.l+(x-a)/(b-a)*(W-m.l-m.r),Y=y=>H-m.b-(y-y0)/(y1-y0)*(H-m.t-m.b);
+  c.clearRect(0,0,W,H);c.font="11px sans-serif";c.fillStyle=fg;c.strokeStyle=bd;c.lineWidth=1;
+  for(let k=0;k<=4;k++){const x=a+(b-a)*k/4,y=y0+(y1-y0)*k/4;c.beginPath();c.moveTo(X(x),m.t);c.lineTo(X(x),H-m.b);c.moveTo(m.l,Y(y));c.lineTo(W-m.r,Y(y));c.stroke();
+    c.textAlign="center";c.fillText(x.toFixed(2),X(x),H-10);c.textAlign="right";c.fillText(y.toPrecision(3),m.l-4,Y(y)+4)}
+  c.save();c.beginPath();c.rect(m.l,m.t,W-m.l-m.r,H-m.t-m.b);c.clip();
+  c.strokeStyle=fg;c.lineWidth=1.5;c.beginPath();c.moveTo(m.l,Y(0));c.lineTo(W-m.r,Y(0));c.stroke();
+  c.strokeStyle=ac;c.lineWidth=2.4;c.beginPath();let pen=false;
+  ys.forEach((y,k)=>{if(!Number.isFinite(y)){pen=false;return}pen?c.lineTo(X(xs[k]),Y(y)):c.moveTo(X(xs[k]),Y(y));pen=true});c.stroke();
+  c.setLineDash([5,4]);c.strokeStyle="#888";c.lineWidth=1;c.beginPath();P.forEach((p,k)=>k?c.lineTo(X(p),Y(py[k])):c.moveTo(X(p),Y(py[k])));c.stroke();c.setLineDash([]);
+  P.forEach((p,k)=>{const col=`hsl(${(k*47)%360} 75% 50%)`,cx=X(p),cy=Y(py[k]),s=6;c.fillStyle=col;c.strokeStyle=col;
+    c.beginPath();c.moveTo(cx,Y(0));c.lineTo(cx,cy);c.setLineDash([2,3]);c.stroke();c.setLineDash([]);c.beginPath();
+    const t=k%4;if(t===0)c.arc(cx,cy,s,0,7);else if(t===1)c.rect(cx-s,cy-s,2*s,2*s);else if(t===2){c.moveTo(cx,cy-s-1);c.lineTo(cx+s+1,cy+s);c.lineTo(cx-s-1,cy+s)}else{c.moveTo(cx,cy-s-2);c.lineTo(cx+s+2,cy);c.lineTo(cx,cy+s+2);c.lineTo(cx-s-2,cy)}
+    c.closePath();c.fill();c.fillStyle=fg;c.textAlign="center";c.fillText("x"+k,cx,cy-s-6)});
+  c.fillStyle="#d62728";c.font="22px sans-serif";c.textAlign="center";c.fillText("★",X(root),Y(0)+7);c.restore();
+  c.font="12px sans-serif";c.fillStyle=fg;c.textAlign="left";c.fillText("f(x) — y=0 — x0..xn — ★ root ≈ "+root.toFixed(6),m.l+8,m.t+14);
+}
+addEventListener("resize",draw);matchMedia("(prefers-color-scheme: dark)").addEventListener("change",draw);
+solve();
+</script></body></html>
